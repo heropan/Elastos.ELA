@@ -15,6 +15,7 @@ import (
 const (
 	STANDARD = 0xAC
 	MULTISIG = 0xAE
+	SCRIPT = 0xAF
 
 	PUSH1 = 0x51
 

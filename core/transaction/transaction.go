@@ -514,6 +514,35 @@ func (tx *Transaction) GetMultiSignPublicKeys() ([][]byte, error) {
 	return publicKeys, nil
 }
 
+func (tx *Transaction) GetScriptPublicKeys() ([][]byte, error) {
+	code, err := tx.GetTransactionCode()
+	if err != nil {
+		return nil, err
+	}
+	//	TODO verify script code min length
+	if code[len(code)-1] != SCRIPT {
+		return nil, errors.New("not a valid script sign transaction code")
+	}
+	// remove last byte SCRIPT
+	code = code[:len(code)-1]
+	// remove script type
+	code = code[1:]
+	// remove height
+	code = code[:len(code)-4]
+	if len(code)%(PublicKeyScriptLength-1) != 0 {
+		return nil, errors.New("not a valid multi sign transaction code, length not match")
+	}
+	var publicKeys [][]byte
+	i := 0
+	for i < len(code) {
+		script := make([]byte, PublicKeyScriptLength-1)
+		copy(script, code[i:i+PublicKeyScriptLength-1])
+		i += PublicKeyScriptLength - 1
+		publicKeys = append(publicKeys, script)
+	}
+	return publicKeys, nil
+}
+
 func (tx *Transaction) GetTransactionType() (byte, error) {
 	code, err := tx.GetTransactionCode()
 	if err != nil {

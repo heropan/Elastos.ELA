@@ -55,6 +55,12 @@ func VerifySignature(txn *Transaction) (bool, error) {
 			}
 			return checkMultiSignSignatures(code, param, txn.GetDataContent(), publicKeys)
 
+		} else if signType == SCRIPT {
+			publicKeys, err := txn.GetScriptPublicKeys()
+			if err != nil {
+				return false, err
+			}
+			return checkScriptSignSignatures(code, param, txn.GetDataContent(), publicKeys)
 		} else {
 			return false, errors.New("unknown signature type")
 		}
@@ -76,6 +82,46 @@ func checkStandardSignature(publicKeyBytes, content, signature []byte) (bool, er
 }
 
 func checkMultiSignSignatures(code, param, content []byte, publicKeys [][]byte) (bool, error) {
+	// Get N parameter
+	n := int(code[len(code)-2]) - PUSH1 + 1
+	// Get M parameter
+	m := int(code[0]) - PUSH1 + 1
+	if m < 1 || m > n {
+		return false, errors.New("invalid multi sign script code")
+	}
+	if len(publicKeys) != n {
+		return false, errors.New("invalid multi sign public key script count")
+	}
+
+	signatureCount := 0
+	for i := 0; i < len(param); i += SignatureScriptLength {
+		// Remove length byte
+		sign := param[i:i+SignatureScriptLength][1:]
+		// Get signature index, if signature exists index will not be -1
+		index := -1
+		for i, publicKey := range publicKeys {
+			pubKey, err := crypto.DecodePoint(publicKey[1:])
+			if err != nil {
+				return false, err
+			}
+			err = crypto.Verify(*pubKey, content, sign)
+			if err == nil {
+				index = i
+			}
+		}
+		if index != -1 {
+			signatureCount++
+		}
+	}
+	// Check signature count
+	if signatureCount != m {
+		return false, errors.New("invalid signature count")
+	}
+
+	return true, nil
+}
+
+func checkScriptSignSignatures(code, param, content []byte, publicKeys [][]byte) (bool, error) {
 	// Get N parameter
 	n := int(code[len(code)-2]) - PUSH1 + 1
 	// Get M parameter
