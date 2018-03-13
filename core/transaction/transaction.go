@@ -383,6 +383,10 @@ func (tx *Transaction) GenerateAssetMaps() {
 	//TODO: implement Transaction.GenerateAssetMaps()
 }
 
+func (tx *Transaction) GetMessage() []byte {
+	return tx.GetDataContent()
+}
+
 func (tx *Transaction) GetDataContent() []byte {
 	return GetDataContent(tx)
 }
@@ -547,6 +551,9 @@ func (tx *Transaction) GetTransactionType() (byte, error) {
 	code, err := tx.GetTransactionCode()
 	if err != nil {
 		return 0, err
+	}
+	if code[len(code)-1] == SCRIPT {
+		return code[len(code)-1], nil
 	}
 	if len(code) != PublicKeyScriptLength && len(code) < MinMultiSignCodeLength {
 		return 0, errors.New("invalid transaction type, redeem script not a standard or multi sign type")

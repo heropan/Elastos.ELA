@@ -1,13 +1,17 @@
-package transaction
+package validation
 
 import (
 	"errors"
 
 	"Elastos.ELA/crypto"
 	. "Elastos.ELA/core/signature"
+	"Elastos.ELA/vm"
+	"Elastos.ELA/vm/interfaces"
+	"Elastos.ELA/core/transaction"
 )
 
-func VerifySignature(txn *Transaction) (bool, error) {
+
+func VerifySignature(txn *transaction.Transaction) (bool, error) {
 	hashes, err := txn.GetProgramHashes()
 	if err != nil {
 		return false, err
@@ -56,11 +60,25 @@ func VerifySignature(txn *Transaction) (bool, error) {
 			return checkMultiSignSignatures(code, param, txn.GetDataContent(), publicKeys)
 
 		} else if signType == SCRIPT {
-			publicKeys, err := txn.GetScriptPublicKeys()
-			if err != nil {
-				return false, err
+			programCode := code[0:len(code)-1]
+			var cryptos interfaces.ICrypto
+			cryptos = new(vm.ECDsaCrypto)
+			se := vm.NewExecutionEngine(txn, cryptos, 1200, nil, nil)
+			se.LoadScript(programCode, false)
+			se.LoadScript(programs[i].Parameter, true)
+			se.Execute()
+
+			if se.GetState() != vm.HALT {
+				return false, errors.New("[VM] Finish State not equal to HALT.")
 			}
-			return checkScriptSignSignatures(code, param, txn.GetDataContent(), publicKeys)
+
+			if se.GetEvaluationStack().Count() != 1 {
+				return false, errors.New("[VM] Execute Engine Stack Count Error.")
+			}
+
+			if flag := se.GetExecuteResult(); !flag {
+				return false, errors.New("[VM] Check Sig FALSE.")
+			}
 		} else {
 			return false, errors.New("unknown signature type")
 		}
@@ -90,47 +108,7 @@ func checkMultiSignSignatures(code, param, content []byte, publicKeys [][]byte) 
 		return false, errors.New("invalid multi sign script code")
 	}
 	if len(publicKeys) != n {
-		return false, errors.New("invalid multi sign public key script count")
-	}
-
-	signatureCount := 0
-	for i := 0; i < len(param); i += SignatureScriptLength {
-		// Remove length byte
-		sign := param[i:i+SignatureScriptLength][1:]
-		// Get signature index, if signature exists index will not be -1
-		index := -1
-		for i, publicKey := range publicKeys {
-			pubKey, err := crypto.DecodePoint(publicKey[1:])
-			if err != nil {
-				return false, err
-			}
-			err = crypto.Verify(*pubKey, content, sign)
-			if err == nil {
-				index = i
-			}
-		}
-		if index != -1 {
-			signatureCount++
-		}
-	}
-	// Check signature count
-	if signatureCount != m {
-		return false, errors.New("invalid signature count")
-	}
-
-	return true, nil
-}
-
-func checkScriptSignSignatures(code, param, content []byte, publicKeys [][]byte) (bool, error) {
-	// Get N parameter
-	n := int(code[len(code)-2]) - PUSH1 + 1
-	// Get M parameter
-	m := int(code[0]) - PUSH1 + 1
-	if m < 1 || m > n {
-		return false, errors.New("invalid multi sign script code")
-	}
-	if len(publicKeys) != n {
-		return false, errors.New("invalid multi sign public key script count")
+		return false, errors.New("invalitransactiond multi sign public key script count")
 	}
 
 	signatureCount := 0

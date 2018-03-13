@@ -54,6 +54,8 @@ func ToProgramHash(code []byte) (Uint168, error) {
 		f = append([]byte{33}, f...)
 	} else if signType == MULTISIG {
 		f = append([]byte{18}, f...)
+	} else if signType == SCRIPT {
+		f = append([]byte{75}, f...)
 	} else {
 		return Uint168{}, errors.New("unknown code signature type")
 	}

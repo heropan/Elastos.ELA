@@ -11,6 +11,7 @@ import (
 	"Elastos.ELA/core/asset"
 	"Elastos.ELA/common/config"
 	tx "Elastos.ELA/core/transaction"
+	"Elastos.ELA/core/validation"
 	"Elastos.ELA/core/transaction/payload"
 )
 
@@ -284,7 +285,7 @@ func CheckAttributeProgram(txn *tx.Transaction) error {
 }
 
 func CheckTransactionSignature(txn *tx.Transaction) error {
-	flag, err := tx.VerifySignature(txn)
+	flag, err := validation.VerifySignature(txn)
 	if flag && err == nil {
 		return nil
 	} else {
